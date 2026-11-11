@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ambient Video</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Local studio</p>
+      <h1>Ambient Video</h1>
+      <p class="lede">Ask for a long-form idea. If you approve it, the app builds a nearly still picture, a seamless sound loop, and a video you can send to YouTube.</p>
+    </header>
+
+    <section id="health" class="health" aria-label="Setup"></section>
+
+    <section class="controls">
+      <label>Length
+        <select id="duration">
+          <option value="1">1 hour</option>
+          <option value="3" selected>3 hours</option>
+          <option value="8">8 hours</option>
+          <option value="10">10 hours</option>
+        </select>
+      </label>
+      <label>Privacy
+        <select id="privacy">
+          <option value="private" selected>Private</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="public">Public</option>
+        </select>
+      </label>
+      <button id="generate" type="button">Generate random video idea</button>
+      <button id="connect" type="button">Connect YouTube</button>
+    </section>
+
+    <p id="error" class="error" role="alert"></p>
+    <p id="status" class="status" role="status"></p>
+
+    <article id="card" class="card" hidden>
+      <p id="purpose" class="purpose"></p>
+      <h2 id="card-title"></h2>
+      <p id="scene"></p>
+      <p id="sound"></p>
+      <p class="hint">The picture is one still with a very slow zoom. The rain, noise, or fire is the sound, not animation.</p>
+      <div class="actions">
+        <button id="decline" type="button" class="ghost">Decline</button>
+        <button id="approve" type="button">Approve</button>
+      </div>
+    </article>
+
+    <section id="result" class="result" hidden></section>
+
+    <section class="history">
+      <h2>Recent</h2>
+      <ul id="history"></ul>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

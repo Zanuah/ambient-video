@@ -1,0 +1,11 @@
+.venv/
+.env
+client_secret.json
+token.json
+output/
+data/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+.DS_Store
