@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import io
 from pathlib import Path
 
 from PIL import Image
@@ -39,7 +40,7 @@ def generate_still(client, scene_prompt: str, dest: Path) -> Path:
         input=image_prompt(scene_prompt),
         response_format={
             "type": "image",
-            "mime_type": "image/png",
+            "mime_type": "image/jpeg",
             "aspect_ratio": "16:9",
             "image_size": "1K",
         },
@@ -49,7 +50,9 @@ def generate_still(client, scene_prompt: str, dest: Path) -> Path:
     if not data:
         raise RuntimeError("Gemini did not return an image.")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(base64.b64decode(data))
+    # The API only accepts image/jpeg. The rest of the pipeline stores a PNG.
+    still = Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")
+    still.save(dest, "PNG")
     return dest
 
 
