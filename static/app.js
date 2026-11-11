@@ -69,9 +69,13 @@ function showResult(job) {
   }
   if (job.note) lines.push(`<p>${escapeHtml(job.note)}</p>`);
   if (job.error) lines.push(`<p>${escapeHtml(job.error)}</p>`);
-  if (job.video_path && job.status !== "done" && job.status !== "uploading" && !(job.note || "").startsWith("Preview mode")) {
-    lines.push(`<p><button id="retry" type="button">Retry upload</button></p>`);
+  if (job.status === "done" && job.video_path) {
+    lines.push("<p>YouTube received this file. If processing was abandoned, upload the same file again.</p>");
   }
+  if (job.video_path && job.status !== "uploading" && !(job.note || "").startsWith("Preview mode")) {
+    lines.push(`<p><button id="retry" type="button" data-job-id="${job.id}">Upload again</button></p>`);
+  }
+  resultEl.dataset.jobId = job.id;
   resultEl.hidden = lines.length === 0;
   resultEl.innerHTML = lines.join("");
   const retry = document.querySelector("#retry");
@@ -90,7 +94,12 @@ function renderHistory(jobs) {
   for (const job of jobs) {
     const item = document.createElement("li");
     const link = job.youtube_url ? ` · <a href="${job.youtube_url}">YouTube</a>` : "";
-    item.innerHTML = `${escapeHtml(job.title)} · ${escapeHtml(job.status)}${link}`;
+    const again = job.video_path && job.status !== "uploading" && !(job.note || "").startsWith("Preview mode")
+      ? ` <button type="button" class="text-button" data-job-id="${job.id}">Upload again</button>`
+      : "";
+    item.innerHTML = `${escapeHtml(job.title)} · ${escapeHtml(job.status)}${link}${again}`;
+    const button = item.querySelector("button");
+    if (button) button.addEventListener("click", retryUpload);
     historyEl.appendChild(item);
   }
 }
@@ -198,9 +207,9 @@ async function approve() {
   }
 }
 
-async function retryUpload() {
-  if (!current && !resultEl.dataset.jobId) return;
-  const jobId = (current && current.id) || resultEl.dataset.jobId;
+async function retryUpload(event) {
+  const jobId = event?.currentTarget?.dataset?.jobId || resultEl.dataset.jobId;
+  if (!jobId) return;
   setError("");
   try {
     const job = await request(`/api/jobs/${jobId}/upload`, { method: "POST" });
@@ -242,7 +251,13 @@ approveBtn.addEventListener("click", approve);
 connectBtn.addEventListener("click", connect);
 
 refreshHealth().catch((error) => setError(error.message));
-refreshHistory().catch((error) => setError(error.message));
+request("/api/jobs")
+  .then((jobs) => {
+    renderHistory(jobs);
+    const finished = jobs.find((job) => job.video_path && job.status !== "proposed" && job.status !== "declined");
+    if (finished) showResult(finished);
+  })
+  .catch((error) => setError(error.message));
 request("/api/jobs/current")
   .then((job) => showCard(job))
   .catch((error) => setError(error.message));
