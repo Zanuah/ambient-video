@@ -31,6 +31,35 @@ def test_each_profile_loops_without_a_click(profile):
     assert jump <= largest_step + 1e-5
 
 
+def _shape(audio: np.ndarray) -> tuple[float, float]:
+    centered = audio.astype(np.float64)
+    centered = centered - centered.mean()
+    moment = float(np.mean(centered**2))
+    kurtosis = float(np.mean(centered**4) / (moment**2))
+    hop = max(1, len(centered) // 80)
+    levels = [
+        float(np.sqrt(np.mean(centered[index : index + hop] ** 2)))
+        for index in range(0, len(centered) - hop, hop)
+    ]
+    variation = float(np.std(levels) / (np.mean(levels) or 1.0))
+    return kurtosis, variation
+
+
+@pytest.mark.parametrize(
+    ("profile", "minimum_kurtosis", "minimum_variation"),
+    [
+        ("soft_rain", 5.0, 0.2),
+        ("heavy_rain", 8.0, 0.15),
+        ("ocean", 6.0, 0.5),
+    ],
+)
+def test_rain_and_waves_are_not_steady_noise(profile, minimum_kurtosis, minimum_variation):
+    audio, _rate = load_bite(profile)
+    kurtosis, variation = _shape(audio)
+    assert kurtosis >= minimum_kurtosis
+    assert variation >= minimum_variation
+
+
 @pytest.mark.parametrize("profile", sorted(FIELD_RECORDINGS))
 def test_field_bites_are_ten_to_twenty_seconds(profile):
     audio, rate = load_bite(profile)
