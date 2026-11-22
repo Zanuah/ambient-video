@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,12 +13,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import ROOT, client_secret_path, find_ffmpeg, gemini_api_key, preview_mode
-from app.ideas import generate_idea, to_public
+from app.ideas import generate_idea, generate_short_ideas, to_public
 from app.jobs import create_proposed, get_job, latest_proposed, list_jobs, update_job
 from app.pipeline import publish, run_job
 from app.youtube import run_oauth_flow, youtube_connected
 
 _connect_state = {"running": False, "error": None}
+_shorts_state = {"running": False}
 
 
 @asynccontextmanager
@@ -37,8 +39,25 @@ class ApproveBody(BaseModel):
     privacy: str = "private"
 
 
+class ShortsBody(BaseModel):
+    privacy: str = "private"
+
+
 def spawn(job_id: str) -> None:
     threading.Thread(target=run_job, args=(job_id,), daemon=True).start()
+
+
+def spawn_shorts(job_ids: list[str]) -> None:
+    _shorts_state["running"] = True
+
+    def work():
+        try:
+            for job_id in job_ids:
+                run_job(job_id)
+        finally:
+            _shorts_state["running"] = False
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 @app.get("/")
@@ -67,6 +86,47 @@ def current_job():
 @app.get("/api/jobs")
 def jobs(limit: int = 12):
     return list_jobs(min(limit, 50))
+
+
+@app.post("/api/shorts")
+def create_shorts(body: ShortsBody):
+    if body.privacy not in {"private", "unlisted", "public"}:
+        raise HTTPException(status_code=400, detail="Privacy must be private, unlisted, or public.")
+    if _shorts_state["running"]:
+        raise HTTPException(status_code=409, detail="Ten Shorts are already being made.")
+    if find_ffmpeg() is None:
+        raise HTTPException(
+            status_code=400,
+            detail="ffmpeg is not installed. Install it with: winget install Gyan.FFmpeg",
+        )
+    titles = [job["title"] for job in list_jobs(30)]
+    try:
+        ideas = generate_short_ideas(avoid_titles=titles)
+    except Exception as exc:
+        message = str(exc).strip() or "Could not create Shorts."
+        status = 400 if "GEMINI_API_KEY" in message else 502
+        raise HTTPException(status_code=status, detail=message) from exc
+    batch_id = uuid.uuid4().hex
+    created = []
+    for index, idea in enumerate(ideas, start=1):
+        job = create_proposed(to_public(idea))
+        created.append(
+            update_job(
+                job["id"],
+                status="queued",
+                step="queued",
+                format="short",
+                batch_id=batch_id,
+                batch_index=index,
+                privacy=body.privacy,
+                duration_seconds=30,
+                duration_hours=None,
+                error=None,
+                note=None,
+            )
+        )
+    spawn_shorts([job["id"] for job in created])
+    return {"jobs": created}
 
 
 @app.get("/api/jobs/{job_id}")

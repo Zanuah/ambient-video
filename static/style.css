@@ -113,6 +113,8 @@ button.ghost {
 .history ul { list-style: none; padding: 0; margin: 0; }
 .history li { padding: 8px 0; border-top: 1px solid var(--line); }
 .history a { color: #d5efe4; }
+.history ol { margin: 0; padding-left: 1.2em; }
+.history ol li { padding: 8px 0; border-top: 1px solid var(--line); }
 button.text-button {
   background: transparent;
   color: #d5efe4;

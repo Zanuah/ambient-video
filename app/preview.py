@@ -45,6 +45,39 @@ _IDEAS = [
 ]
 
 
+_SHORTS = [
+    ("focus", "soft_rain", "Soft rain for calm focus", "Rain on a dim window while a desk stays empty."),
+    ("focus", "brown_noise", "Brown noise for quiet work", "A wooden desk and a single warm lamp."),
+    ("meditation", "stream", "Creek sound for steady focus", "A shaded creek under green leaves."),
+    ("rest", "ocean", "Soft surf for a calm break", "A pale shoreline with no people."),
+    ("focus", "pink_noise", "Pink noise for reading", "An open book on a quiet table."),
+    ("meditation", "wind", "Gentle wind for concentration", "Curtains moving in a still room."),
+    ("rest", "fireplace", "Low fire for calm focus", "A small fire in a dark hearth."),
+    ("focus", "stream", "Morning water for deep work", "Sun on a slow forest stream."),
+    ("meditation", "soft_rain", "Night rain for a calm desk", "Rain on glass above a dark desk."),
+    ("rest", "ocean", "Still water for focused rest", "A quiet lake just before dusk."),
+]
+
+
+def preview_shorts():
+    ideas = []
+    for purpose, sound, title, scene in _SHORTS:
+        ideas.append(
+            parse_idea(
+                {
+                    "purpose": purpose,
+                    "title": title,
+                    "description": f"{scene} A short calm sound for background listening while you focus.",
+                    "tags": ["calm", "focus", sound.replace("_", " "), "ambient"],
+                    "scene_summary": scene,
+                    "scene_prompt": f"Vertical 9:16 photograph, {scene} No people, no text.",
+                    "sound_profile": sound,
+                }
+            )
+        )
+    return ideas
+
+
 def next_preview_idea(avoid_titles: list[str] | None = None):
     avoided = {title.lower() for title in (avoid_titles or [])}
     for idea in _IDEAS:

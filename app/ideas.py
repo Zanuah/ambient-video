@@ -60,7 +60,9 @@ class VideoIdea(BaseModel):
     scene_prompt: str = Field(
         description="A prompt for one photorealistic 16:9 still photograph. No text, logos, or people. The picture does not animate."
     )
-    sound_profile: SoundProfile = Field(description="One sound from the allowed list. The app synthesizes it; do not describe music with a melody.")
+    sound_profile: SoundProfile = Field(
+        description="One sound from the allowed list. Rain, ocean, stream, wind, and fire are looped field recordings. Brown, pink, and white noise are synthesized. Do not describe music with a melody."
+    )
 
 
 def clean_title(title: str) -> str:
@@ -133,13 +135,115 @@ def idea_prompt(avoid_titles: list[str] | None = None) -> str:
     profiles = ", ".join(SOUND_PROFILES)
     return f"""
 Propose one original long-form YouTube ambient video that a person would leave playing for hours.
-The picture is a single nearly still photograph. The sound is a seamless loop. Do not describe animation, lyrics, or a melody.
+The picture is a single nearly still photograph. The sound is a short field recording looped for the whole video, except brown, pink, and white noise, which are synthesized. Do not describe animation, lyrics, or a melody.
 Choose a purpose that is in demand for long listening: sleep, focus, meditation, or rest.
 Choose sound_profile from exactly this list: {profiles}.
 The scene should be something people actually play in the background, such as rain, water, wind, a quiet room, or a fire.
 Do not claim the video cures, treats, or diagnoses insomnia, anxiety, or any condition. Describe it as background listening.
 Avoid these titles: {avoided}.
 """.strip()
+
+
+class ShortBatch(BaseModel):
+    ideas: list[VideoIdea] = Field(description="Exactly ten different Shorts.")
+
+
+SHORT_COUNT = 10
+CALM_PURPOSES = ("focus", "meditation", "rest")
+
+
+def as_short(idea: VideoIdea) -> VideoIdea:
+    """Mark a calm or focus idea as a YouTube Short without dropping the label."""
+    suffix = " #Shorts"
+    title = " ".join(idea.title.split())
+    if "#shorts" not in title.lower():
+        room = TITLE_LIMIT - len(suffix)
+        title = title[:room].rstrip() + suffix
+    title = clean_title(title)
+    tags = list(idea.tags)
+    if not any(tag.lower() == "shorts" for tag in tags):
+        tags.append("Shorts")
+    description = idea.description.strip()
+    if "#shorts" not in description.lower():
+        description = f"{description}\n\n#Shorts"
+    return idea.model_copy(
+        update={
+            "title": title,
+            "tags": normalize_tags(tags),
+            "description": clean_description(description),
+        }
+    )
+
+
+def shorts_prompt(avoid_titles: list[str] | None = None) -> str:
+    avoided = ", ".join(avoid_titles[:20]) if avoid_titles else "none"
+    profiles = "soft_rain, ocean, stream, wind, brown_noise, pink_noise, fireplace"
+    return f"""
+Propose exactly {SHORT_COUNT} different YouTube Shorts for calm and focus.
+Each Short is one nearly still vertical photograph plus a seamless ambient sound. No animation, lyrics, or melody.
+purpose must be one of: focus, meditation, rest.
+sound_profile must be one of: {profiles}.
+Every title must be distinct and about calm focus, quiet work, or restful concentration.
+scene_prompt must describe one photorealistic vertical 9:16 photograph with no text, logos, or people.
+Do not claim the video cures, treats, or diagnoses anything.
+Avoid these titles: {avoided}.
+""".strip()
+
+
+def parse_short_batch(payload: str | dict | list) -> list[VideoIdea]:
+    if isinstance(payload, str):
+        text = payload.strip()
+        if text.startswith("```"):
+            lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
+            text = "\n".join(lines).strip()
+        data = json.loads(text)
+    else:
+        data = payload
+    raw_ideas = data if isinstance(data, list) else data.get("ideas", [])
+    ideas = [as_short(parse_idea(item)) for item in raw_ideas]
+    unique: list[VideoIdea] = []
+    seen: set[str] = set()
+    for idea in ideas:
+        key = idea.title.lower()
+        if key in seen:
+            continue
+        if idea.purpose not in CALM_PURPOSES:
+            continue
+        seen.add(key)
+        unique.append(idea)
+    if len(unique) < SHORT_COUNT:
+        raise ValueError(f"Expected {SHORT_COUNT} calm and focus Shorts, got {len(unique)}.")
+    return unique[:SHORT_COUNT]
+
+
+def generate_short_ideas(client=None, avoid_titles: list[str] | None = None) -> list[VideoIdea]:
+    from app.config import preview_mode
+
+    if preview_mode():
+        from app.preview import preview_shorts
+
+        return parse_short_batch([idea.model_dump() for idea in preview_shorts()])
+    if client is None:
+        from app.config import gemini_api_key
+
+        if not gemini_api_key():
+            raise RuntimeError("Set GEMINI_API_KEY in a .env file. Create a key in Google AI Studio.")
+        from google import genai
+
+        client = genai.Client(api_key=gemini_api_key())
+    interaction = client.interactions.create(
+        model=TEXT_MODEL,
+        input=shorts_prompt(avoid_titles),
+        response_format={
+            "type": "text",
+            "mime_type": "application/json",
+            "schema": ShortBatch.model_json_schema(),
+        },
+    )
+    text = interaction.output_text or ""
+    if not text.strip():
+        raise RuntimeError("Gemini returned no Shorts.")
+    return parse_short_batch(text)
 
 
 def to_public(idea: VideoIdea) -> dict:

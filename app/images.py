@@ -15,16 +15,17 @@ FRAME_SIZE = (1920, 1080)
 THUMB_SIZE = (1280, 720)
 
 
-def image_prompt(scene_prompt: str) -> str:
+def image_prompt(scene_prompt: str, aspect_ratio: str = "16:9") -> str:
+    shape = "vertical 9:16" if aspect_ratio == "9:16" else "16:9"
     return (
-        "Create one photorealistic photograph, 16:9, calm and quiet, "
-        "suitable as a nearly motionless background for a long ambient video. "
+        f"Create one photorealistic photograph, {shape}, calm and quiet, "
+        "suitable as a nearly motionless background. "
         "No text, no letters, no logos, no watermarks, no people, no faces. "
         + " ".join(scene_prompt.split())
     )
 
 
-def generate_still(client, scene_prompt: str, dest: Path) -> Path:
+def generate_still(client, scene_prompt: str, dest: Path, aspect_ratio: str = "16:9") -> Path:
     if preview_mode():
         from app.preview import draw_preview_still
 
@@ -37,11 +38,11 @@ def generate_still(client, scene_prompt: str, dest: Path) -> Path:
         client = genai.Client(api_key=gemini_api_key())
     interaction = client.interactions.create(
         model=IMAGE_MODEL,
-        input=image_prompt(scene_prompt),
+        input=image_prompt(scene_prompt, aspect_ratio),
         response_format={
             "type": "image",
             "mime_type": "image/jpeg",
-            "aspect_ratio": "16:9",
+            "aspect_ratio": aspect_ratio,
             "image_size": "1K",
         },
     )

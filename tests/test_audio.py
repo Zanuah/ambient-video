@@ -5,7 +5,7 @@ import wave
 import numpy as np
 import pytest
 
-from app.audio import seamless_loop, synthesize, write_wav
+from app.audio import FIELD_RECORDINGS, SAMPLE_RATE, load_bite, seamless_loop, synthesize, write_wav
 from app.ideas import SOUND_PROFILES
 
 
@@ -29,6 +29,24 @@ def test_each_profile_loops_without_a_click(profile):
     jump = abs(float(audio[0] - audio[-1]))
     largest_step = float(np.max(np.abs(np.diff(audio))))
     assert jump <= largest_step + 1e-5
+
+
+@pytest.mark.parametrize("profile", sorted(FIELD_RECORDINGS))
+def test_field_bites_are_ten_to_twenty_seconds(profile):
+    audio, rate = load_bite(profile)
+    seconds = len(audio) / rate
+    assert rate == SAMPLE_RATE
+    assert 10 <= seconds <= 20
+    assert float(np.std(audio)) > 0.01
+
+
+def test_recordings_ignore_the_seed_and_noise_does_not():
+    rain_a = synthesize("soft_rain", seconds=2, sample_rate=16000, seed=1)
+    rain_b = synthesize("soft_rain", seconds=2, sample_rate=16000, seed=9)
+    assert np.array_equal(rain_a, rain_b)
+    noise_a = synthesize("pink_noise", seconds=2, sample_rate=16000, seed=1)
+    noise_b = synthesize("pink_noise", seconds=2, sample_rate=16000, seed=9)
+    assert not np.array_equal(noise_a, noise_b)
 
 
 def test_unknown_profile_is_rejected():

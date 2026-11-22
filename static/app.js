@@ -1,6 +1,7 @@
 const durationEl = document.querySelector("#duration");
 const privacyEl = document.querySelector("#privacy");
 const generateBtn = document.querySelector("#generate");
+const shortsBtn = document.querySelector("#shorts");
 const connectBtn = document.querySelector("#connect");
 const declineBtn = document.querySelector("#decline");
 const approveBtn = document.querySelector("#approve");
@@ -9,10 +10,13 @@ const statusEl = document.querySelector("#status");
 const cardEl = document.querySelector("#card");
 const resultEl = document.querySelector("#result");
 const historyEl = document.querySelector("#history");
+const shortsPanel = document.querySelector("#shorts-panel");
+const shortsList = document.querySelector("#shorts-list");
 const healthEl = document.querySelector("#health");
 
 let current = null;
 let pollTimer = null;
+let shortsTimer = null;
 
 function setError(message) {
   errorEl.textContent = message || "";
@@ -87,6 +91,75 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function latestShortBatch(jobs) {
+  const shorts = jobs.filter((job) => job.format === "short" && job.batch_id);
+  if (!shorts.length) return [];
+  const newest = shorts
+    .slice()
+    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))[0];
+  return shorts
+    .filter((job) => job.batch_id === newest.batch_id)
+    .sort((a, b) => (a.batch_index || 0) - (b.batch_index || 0));
+}
+
+function renderShorts(jobs) {
+  shortsPanel.hidden = jobs.length === 0;
+  shortsList.innerHTML = "";
+  jobs.forEach((job, index) => {
+    const item = document.createElement("li");
+    const link = job.youtube_url ? ` · <a href="${job.youtube_url}">YouTube</a>` : "";
+    const problem = job.error ? ` · ${escapeHtml(job.error)}` : "";
+    item.innerHTML = `${escapeHtml(job.title)} · ${escapeHtml(job.step || job.status)}${link}${problem}`;
+    item.dataset.index = String(index + 1);
+    shortsList.appendChild(item);
+  });
+}
+
+function watchShorts(ids) {
+  if (shortsTimer) clearInterval(shortsTimer);
+  const tick = async () => {
+    try {
+      const jobs = [];
+      for (const id of ids) jobs.push(await request(`/api/jobs/${id}`));
+      jobs.sort((a, b) => (a.batch_index || 0) - (b.batch_index || 0));
+      renderShorts(jobs);
+      const busy = jobs.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
+      const finished = jobs.filter((job) => ["done", "ready", "failed"].includes(job.status)).length;
+      setStatus(busy ? `Shorts ${finished} of ${jobs.length} finished…` : "");
+      if (!busy) {
+        clearInterval(shortsTimer);
+        shortsTimer = null;
+        shortsBtn.disabled = false;
+      }
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+  shortsBtn.disabled = true;
+  tick();
+  shortsTimer = setInterval(tick, 1500);
+}
+
+async function createShorts() {
+  setError("");
+  shortsBtn.disabled = true;
+  setStatus("Asking for 10 calm and focus Shorts…");
+  try {
+    const body = await request("/api/shorts", {
+      method: "POST",
+      body: JSON.stringify({ privacy: privacyEl.value }),
+    });
+    renderShorts(body.jobs);
+    setStatus("Shorts 0 of 10 finished…");
+    watchShorts(body.jobs.map((job) => job.id));
+    await refreshHistory();
+  } catch (error) {
+    setError(error.message);
+    setStatus("");
+    shortsBtn.disabled = false;
+  }
 }
 
 function renderHistory(jobs) {
@@ -246,16 +319,23 @@ async function connect() {
 }
 
 generateBtn.addEventListener("click", generate);
+shortsBtn.addEventListener("click", createShorts);
 declineBtn.addEventListener("click", decline);
 approveBtn.addEventListener("click", approve);
 connectBtn.addEventListener("click", connect);
 
 refreshHealth().catch((error) => setError(error.message));
-request("/api/jobs")
+request("/api/jobs?limit=40")
   .then((jobs) => {
     renderHistory(jobs);
     const finished = jobs.find((job) => job.video_path && job.status !== "proposed" && job.status !== "declined");
     if (finished) showResult(finished);
+    const batch = latestShortBatch(jobs);
+    if (batch.length) {
+      renderShorts(batch);
+      const busy = batch.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
+      if (busy) watchShorts(batch.map((job) => job.id));
+    }
   })
   .catch((error) => setError(error.message));
 request("/api/jobs/current")

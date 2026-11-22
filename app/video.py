@@ -11,6 +11,10 @@ CLIP_SECONDS = 24
 WIDTH = 1920
 HEIGHT = 1080
 ZOOM_AMOUNT = 0.04
+SHORT_WIDTH = 1080
+SHORT_HEIGHT = 1920
+SHORT_SECONDS = 30
+SHORT_FPS = 15
 
 
 def zoom_at(frame: int, frames: int = CLIP_SECONDS, amount: float = ZOOM_AMOUNT) -> float:
@@ -51,6 +55,64 @@ def base_clip_command(ffmpeg: str, image: Path, clip: Path, frames: int = CLIP_S
         "+faststart",
         str(clip),
     ]
+
+
+def short_command(
+    ffmpeg: str,
+    image: Path,
+    wav: Path,
+    output: Path,
+    seconds: int = SHORT_SECONDS,
+    fps: int = SHORT_FPS,
+) -> list[str]:
+    frames = int(seconds * fps)
+    zoom = f"1+{ZOOM_AMOUNT}*sin(PI*on/{frames - 1})"
+    video_filter = (
+        f"scale={SHORT_WIDTH}:{SHORT_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={SHORT_WIDTH}:{SHORT_HEIGHT},"
+        f"zoompan=z='{zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={SHORT_WIDTH}x{SHORT_HEIGHT}:fps={fps}"
+    )
+    return [
+        ffmpeg,
+        "-y",
+        "-i",
+        str(image),
+        "-i",
+        str(wav),
+        "-vf",
+        video_filter,
+        "-frames:v",
+        str(frames),
+        "-t",
+        f"{seconds:.3f}",
+        "-c:v",
+        "libx264",
+        "-tune",
+        "stillimage",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "160k",
+        "-shortest",
+        "-movflags",
+        "+faststart",
+        str(output),
+    ]
+
+
+def render_short(
+    image: Path,
+    wav: Path,
+    output: Path,
+    ffmpeg: str | None = None,
+    seconds: int = SHORT_SECONDS,
+) -> Path:
+    executable = ffmpeg or require_ffmpeg()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    run_ffmpeg(short_command(executable, image, wav, output, seconds))
+    return output
 
 
 def assemble_command(ffmpeg: str, clip: Path, wav: Path, output: Path, duration_seconds: float) -> list[str]:

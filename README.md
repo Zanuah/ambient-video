@@ -2,7 +2,7 @@
 
 A local website that asks Gemini for a long-form ambient video idea. If you approve it, the app makes one still picture, a seamless sound loop, and a multi-hour video, then uploads that video to your YouTube channel.
 
-The picture barely moves: a slow zoom out and back. Rain, wind, noise, and fire are the soundtrack, synthesized on this machine. Gemini does not generate the audio.
+The picture barely moves: a slow zoom out and back. Rain, waves, a stream, wind, and a fire are short public-domain recordings, looped for the whole video. Brown, pink, and white noise are still synthesized on this machine. Gemini does not generate the audio.
 
 ## Setup
 
@@ -48,7 +48,9 @@ Open http://127.0.0.1:8765
 3. Click **Generate random video idea**.
 4. **Decline** asks for a different idea. **Approve** builds the files under `output/` and uploads them.
 
-If the upload fails, the mp4 stays on disk. Use **Retry upload** so the app does not render the video again.
+If the upload fails, the mp4 stays on disk. Use **Upload again** so the app does not render the video again.
+
+**Create 10 calm and focus Shorts** makes ten vertical 30-second videos, one after another, and lists the progress of all ten. YouTube treats a vertical video of that length as a Short. The privacy choice on the page applies to the batch. Default is private.
 
 To click through the page without API keys, set `AMBIENT_PREVIEW=1` in `.env` and restart. Preview mode uses three sample ideas, draws a gradient instead of calling Gemini, and does not upload.
 
@@ -57,7 +59,7 @@ To click through the page without API keys, set `AMBIENT_PREVIEW=1` in `.env` an
 Each approved idea gets a folder in `output/`:
 
 - `still.png` and `frame.png` — the picture
-- `loop.wav` — a 60-second seamless sound loop
+- `loop.wav` — the soundtrack. Field recordings are a 16-second bite repeated until this file is a minute long; noise profiles are a synthesized minute. The video loops this file for the full length.
 - `clip.mp4` — a 24-second slow zoom
 - `video.mp4` — the long video
 - `thumbnail.jpg`

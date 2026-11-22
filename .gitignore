@@ -4,6 +4,7 @@ client_secret.json
 token.json
 output/
 data/
+tmp-sounds/
 __pycache__/
 .pytest_cache/
 *.pyc

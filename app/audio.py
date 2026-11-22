@@ -1,4 +1,4 @@
-"""Seamless ambient loops. Gemini picks the profile; this module makes the sound."""
+"""Seamless ambient loops. Rain, water, wind, and fire come from short recordings."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ from app.ideas import SOUND_PROFILES
 SAMPLE_RATE = 48000
 LOOP_SECONDS = 60
 TARGET_PEAK = 0.45
+SOUNDS_DIR = Path(__file__).resolve().parents[1] / "assets" / "sounds"
+# Real 10–20 second bites. Brown, pink, and white noise stay synthesized.
+FIELD_RECORDINGS = frozenset({"soft_rain", "heavy_rain", "ocean", "stream", "wind", "fireplace"})
 
 
 def seamless_loop(raw: np.ndarray, fade_samples: int) -> np.ndarray:
@@ -112,6 +115,50 @@ def normalize(audio: np.ndarray, peak: float = TARGET_PEAK) -> np.ndarray:
     return centered * (peak / loudest)
 
 
+def read_wav(path: Path) -> tuple[np.ndarray, int]:
+    with wave.open(str(path), "rb") as handle:
+        channels = handle.getnchannels()
+        rate = handle.getframerate()
+        frames = handle.readframes(handle.getnframes())
+    audio = np.frombuffer(frames, dtype=np.int16).astype(np.float64) / 32768.0
+    if channels > 1:
+        audio = audio.reshape(-1, channels).mean(axis=1)
+    return audio, rate
+
+
+def resample(audio: np.ndarray, source_rate: int, target_rate: int) -> np.ndarray:
+    if source_rate == target_rate:
+        return audio
+    if source_rate < 1 or target_rate < 1 or len(audio) < 2:
+        raise ValueError("Cannot resample this recording.")
+    target_length = int(round(len(audio) * target_rate / source_rate))
+    source_x = np.linspace(0.0, 1.0, len(audio), endpoint=False)
+    target_x = np.linspace(0.0, 1.0, target_length, endpoint=False)
+    return np.interp(target_x, source_x, audio)
+
+
+def load_bite(profile: str) -> tuple[np.ndarray, int]:
+    path = SOUNDS_DIR / f"{profile}.wav"
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing sound bite: {path.name}")
+    audio, rate = read_wav(path)
+    if len(audio) < 2:
+        raise ValueError(f"Sound bite is empty: {path.name}")
+    return audio, rate
+
+
+def loop_recording(profile: str, seconds: float, sample_rate: int) -> np.ndarray:
+    """Repeat a 10–20 second bite to the requested length, with a seamless join."""
+    bite, rate = load_bite(profile)
+    bite = resample(bite, rate, sample_rate)
+    sample_count = int(seconds * sample_rate)
+    fade = int(min(0.35, seconds / 4) * sample_rate)
+    fade = min(fade, max(1, len(bite) // 8), max(1, sample_count // 4))
+    copies = int(np.ceil((sample_count + fade) / len(bite)))
+    raw = np.tile(bite, copies)[: sample_count + fade]
+    return normalize(seamless_loop(raw, fade))
+
+
 def synthesize(
     profile: str,
     seconds: float = LOOP_SECONDS,
@@ -122,6 +169,8 @@ def synthesize(
         raise ValueError(f"Unknown sound profile: {profile}")
     if seconds <= 0:
         raise ValueError("Loop length must be positive.")
+    if profile in FIELD_RECORDINGS:
+        return loop_recording(profile, seconds, sample_rate).astype(np.float32)
     sample_count = int(seconds * sample_rate)
     fade = int(min(0.5, seconds / 4) * sample_rate)
     rng = np.random.default_rng(seed)

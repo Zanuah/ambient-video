@@ -10,7 +10,7 @@ from app.config import output_dir, preview_mode
 from app.ideas import append_length
 from app.images import fit_frame, generate_still, write_thumbnail
 from app.jobs import get_job, update_job
-from app.video import assemble, render_base_clip
+from app.video import SHORT_HEIGHT, SHORT_SECONDS, SHORT_WIDTH, assemble, render_base_clip, render_short
 from app.youtube import upload_files, youtube_connected
 
 PREVIEW_NOTE = "Preview mode saved the files locally and did not upload. Turn off AMBIENT_PREVIEW and connect YouTube to publish."
@@ -38,6 +38,9 @@ def run_job(job_id: str) -> None:
 
 
 def _render(job: dict, folder: Path) -> None:
+    if job.get("format") == "short":
+        _render_short(job, folder)
+        return
     job_id = job["id"]
     hours = int(job["duration_hours"])
     update_job(job_id, status="rendering", step="image", error=None)
@@ -80,6 +83,54 @@ def _render(job: dict, folder: Path) -> None:
         video_path=str(video),
         thumbnail_path=str(thumb),
         metadata_path=str(metadata_path),
+    )
+
+
+def _render_short(job: dict, folder: Path) -> None:
+    job_id = job["id"]
+    update_job(job_id, status="rendering", step="image", error=None)
+
+    still = folder / "still.png"
+    frame = folder / "frame.png"
+    generate_still(None, job["scene_prompt"], still, aspect_ratio="9:16")
+    fit_frame(still, frame, size=(SHORT_WIDTH, SHORT_HEIGHT))
+
+    update_job(job_id, step="audio")
+    wav = folder / "loop.wav"
+    samples = synthesize(job["sound_profile"], seconds=SHORT_SECONDS, sample_rate=SAMPLE_RATE)
+    write_wav(wav, samples, SAMPLE_RATE)
+
+    update_job(job_id, step="video")
+    video = folder / "video.mp4"
+    render_short(frame, wav, video, seconds=SHORT_SECONDS)
+
+    update_job(job_id, step="metadata")
+    thumb = folder / "thumbnail.jpg"
+    write_thumbnail(frame, thumb)
+    description = job["description"].rstrip()
+    note = f"A {SHORT_SECONDS}-second YouTube Short for calm, focused listening."
+    if note not in description:
+        description = f"{description}\n\n{note}"
+    metadata = {
+        "title": job["title"],
+        "description": description,
+        "tags": job["tags"],
+        "purpose": job["purpose"],
+        "sound_profile": job["sound_profile"],
+        "duration_seconds": SHORT_SECONDS,
+        "privacy": job["privacy"],
+        "format": "short",
+    }
+    metadata_path = folder / "metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    update_job(
+        job_id,
+        image_path=str(still),
+        wav_path=str(wav),
+        video_path=str(video),
+        thumbnail_path=str(thumb),
+        metadata_path=str(metadata_path),
+        duration_seconds=SHORT_SECONDS,
     )
 
 

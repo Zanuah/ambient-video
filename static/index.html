@@ -33,6 +33,7 @@
         </select>
       </label>
       <button id="generate" type="button">Generate random video idea</button>
+      <button id="shorts" type="button">Create 10 calm and focus Shorts</button>
       <button id="connect" type="button">Connect YouTube</button>
     </section>
 
@@ -53,11 +54,17 @@
 
     <section id="result" class="result" hidden></section>
 
+    <section id="shorts-panel" class="history" hidden>
+      <h2>Shorts</h2>
+      <p class="lede">Ten vertical 30-second videos. Each row updates as that Short is built and uploaded.</p>
+      <ol id="shorts-list"></ol>
+    </section>
+
     <section class="history">
       <h2>Recent</h2>
       <ul id="history"></ul>
     </section>
   </main>
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
