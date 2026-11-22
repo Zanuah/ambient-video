@@ -59,6 +59,40 @@ def test_decline_and_approve_use_private_three_hours(monkeypatch):
     assert started["id"] == second_job["id"]
 
 
+def test_long_video_runs_while_shorts_are_in_progress(monkeypatch):
+    monkeypatch.setenv("AMBIENT_PREVIEW", "1")
+    monkeypatch.setattr("app.main.find_ffmpeg", lambda: "ffmpeg")
+    started = []
+    monkeypatch.setattr("app.main.spawn", lambda job_id: started.append(job_id))
+    monkeypatch.setattr("app.main.spawn_shorts", lambda job_ids: None)
+    from app.jobs import update_job
+    from app.main import _shorts_state
+
+    client = _client()
+    idea = client.post("/api/ideas")
+    assert idea.status_code == 200
+    idea_id = idea.json()["id"]
+    shorts = client.post("/api/shorts", json={"privacy": "private"})
+    assert shorts.status_code == 200
+    short_id = shorts.json()["jobs"][0]["id"]
+    update_job(short_id, status="proposed")
+    _shorts_state["running"] = True
+    try:
+        current = client.get("/api/jobs/current")
+        assert current.status_code == 200
+        assert current.json()["id"] == idea_id
+        approved = client.post(
+            f"/api/jobs/{idea_id}/approve",
+            json={"duration_hours": 1, "privacy": "private"},
+        )
+        assert approved.status_code == 200
+        assert started == [idea_id]
+        blocked = client.post("/api/shorts", json={"privacy": "private"})
+        assert blocked.status_code == 409
+    finally:
+        _shorts_state["running"] = False
+
+
 def test_missing_privacy_defaults_to_private(monkeypatch):
     monkeypatch.setenv("AMBIENT_PREVIEW", "1")
     monkeypatch.setattr("app.main.spawn", lambda job_id: None)

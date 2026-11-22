@@ -12,6 +12,7 @@ from app.ideas import normalize_tags
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 # YouTube category 10 is Music, which is where ambient soundscapes are usually filed.
 MUSIC_CATEGORY = "10"
+_token_lock = threading.Lock()
 THUMBNAIL_WARNING = (
     "The video uploaded, but YouTube did not accept the thumbnail. "
     "Add thumbnail.jpg from the job folder in YouTube Studio. "
@@ -52,12 +53,13 @@ def load_credentials():
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
 
-    creds = Credentials.from_authorized_user_file(str(path), SCOPES)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        path.write_text(creds.to_json(), encoding="utf-8")
-    if creds and creds.valid:
-        return creds
+    with _token_lock:
+        creds = Credentials.from_authorized_user_file(str(path), SCOPES)
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            path.write_text(creds.to_json(), encoding="utf-8")
+        if creds and creds.valid:
+            return creds
     return None
 
 

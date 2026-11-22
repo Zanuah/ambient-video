@@ -19,6 +19,8 @@ def db_path():
 def connect() -> sqlite3.Connection:
     connection = sqlite3.connect(db_path(), timeout=30)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA busy_timeout=30000")
     return connection
 
 
@@ -107,14 +109,17 @@ def update_job(job_id: str, **fields) -> dict:
 
 
 def latest_proposed() -> dict | None:
+    """The long-form idea waiting for approve or decline. Shorts are a separate batch."""
     init_db()
     with connect() as connection:
-        row = connection.execute(
-            "SELECT document FROM jobs WHERE status = 'proposed' ORDER BY updated_at DESC LIMIT 1"
-        ).fetchone()
-    if row is None:
-        return None
-    return json.loads(row["document"])
+        rows = connection.execute(
+            "SELECT document FROM jobs WHERE status = 'proposed' ORDER BY updated_at DESC"
+        ).fetchall()
+    for row in rows:
+        job = json.loads(row["document"])
+        if job.get("format") != "short":
+            return job
+    return None
 
 
 def list_jobs(limit: int = 12) -> list[dict]:

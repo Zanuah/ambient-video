@@ -12,6 +12,7 @@ const resultEl = document.querySelector("#result");
 const historyEl = document.querySelector("#history");
 const shortsPanel = document.querySelector("#shorts-panel");
 const shortsList = document.querySelector("#shorts-list");
+const shortsStatusEl = document.querySelector("#shorts-status");
 const healthEl = document.querySelector("#health");
 
 let current = null;
@@ -24,6 +25,10 @@ function setError(message) {
 
 function setStatus(message) {
   statusEl.textContent = message || "";
+}
+
+function setShortsStatus(message) {
+  shortsStatusEl.textContent = message || "";
 }
 
 async function request(url, options) {
@@ -127,7 +132,7 @@ function watchShorts(ids) {
       renderShorts(jobs);
       const busy = jobs.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
       const finished = jobs.filter((job) => ["done", "ready", "failed"].includes(job.status)).length;
-      setStatus(busy ? `Shorts ${finished} of ${jobs.length} finished…` : "");
+      setShortsStatus(busy ? `Shorts ${finished} of ${jobs.length} finished…` : "");
       if (!busy) {
         clearInterval(shortsTimer);
         shortsTimer = null;
@@ -145,26 +150,26 @@ function watchShorts(ids) {
 async function createShorts() {
   setError("");
   shortsBtn.disabled = true;
-  setStatus("Asking for 10 calm and focus Shorts…");
+  setShortsStatus("Asking for 10 calm and focus Shorts…");
   try {
     const body = await request("/api/shorts", {
       method: "POST",
       body: JSON.stringify({ privacy: privacyEl.value }),
     });
     renderShorts(body.jobs);
-    setStatus("Shorts 0 of 10 finished…");
+    setShortsStatus("Shorts 0 of 10 finished…");
     watchShorts(body.jobs.map((job) => job.id));
     await refreshHistory();
   } catch (error) {
     setError(error.message);
-    setStatus("");
+    setShortsStatus("");
     shortsBtn.disabled = false;
   }
 }
 
 function renderHistory(jobs) {
   historyEl.innerHTML = "";
-  for (const job of jobs) {
+  for (const job of jobs.filter((item) => item.format !== "short")) {
     const item = document.createElement("li");
     const link = job.youtube_url ? ` · <a href="${job.youtube_url}">YouTube</a>` : "";
     const again = job.video_path && job.status !== "uploading" && !(job.note || "").startsWith("Preview mode")
@@ -194,7 +199,7 @@ async function refreshHealth() {
 }
 
 async function refreshHistory() {
-  renderHistory(await request("/api/jobs"));
+  renderHistory(await request("/api/jobs?limit=40"));
 }
 
 function watch(jobId) {
