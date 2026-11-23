@@ -278,6 +278,82 @@ def generate_short_ideas(client=None, avoid_titles: list[str] | None = None) -> 
     return parse_short_batch(text)
 
 
+class PublicBatch(BaseModel):
+    ideas: list[VideoIdea] = Field(description="Exactly ten different long-form ambient videos.")
+
+
+PUBLIC_COUNT = 10
+
+
+def public_batch_prompt(avoid_titles: list[str] | None = None) -> str:
+    avoided = ", ".join(avoid_titles[:20]) if avoid_titles else "none"
+    profiles = ", ".join(SOUND_PROFILES)
+    return f"""
+Propose exactly {PUBLIC_COUNT} different original long-form YouTube ambient videos that a person would leave playing for hours.
+Each picture is a single nearly still photograph. The sound is a short field recording looped for the whole video, except brown, pink, and white noise, which are synthesized. Do not describe animation, lyrics, or a melody.
+Choose a purpose that is in demand for long listening: sleep, focus, meditation, or rest.
+Choose sound_profile from exactly this list: {profiles}.
+Every title must be distinct. The scene should be something people actually play in the background, such as rain, water, wind, a quiet room, or a fire.
+scene_prompt must describe one photorealistic 16:9 photograph with no text, logos, or people.
+Do not claim the video cures, treats, or diagnoses insomnia, anxiety, or any condition. Describe it as background listening.
+Avoid these titles: {avoided}.
+""".strip()
+
+
+def parse_public_batch(payload: str | dict | list) -> list[VideoIdea]:
+    if isinstance(payload, str):
+        text = payload.strip()
+        if text.startswith("```"):
+            lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
+            text = "\n".join(lines).strip()
+        data = json.loads(text)
+    else:
+        data = payload
+    raw_ideas = data if isinstance(data, list) else data.get("ideas", [])
+    ideas = [parse_idea(item) for item in raw_ideas]
+    unique: list[VideoIdea] = []
+    seen: set[str] = set()
+    for idea in ideas:
+        key = idea.title.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(idea)
+    if len(unique) < PUBLIC_COUNT:
+        raise ValueError(f"Expected {PUBLIC_COUNT} long-form videos, got {len(unique)}.")
+    return unique[:PUBLIC_COUNT]
+
+
+def generate_public_video_ideas(client=None, avoid_titles: list[str] | None = None) -> list[VideoIdea]:
+    from app.config import preview_mode
+
+    if preview_mode():
+        from app.preview import preview_public_videos
+
+        return parse_public_batch([idea.model_dump() for idea in preview_public_videos()])
+    if client is None:
+        from app.config import gemini_api_key
+
+        if not gemini_api_key():
+            raise RuntimeError("Set GEMINI_API_KEY in a .env file. Create a key in Google AI Studio.")
+        from google import genai
+
+        client = genai.Client(api_key=gemini_api_key())
+    interaction = client.interactions.create(
+        model=TEXT_MODEL,
+        input=public_batch_prompt(avoid_titles),
+        response_format={
+            "type": "text",
+            "mime_type": "application/json",
+            "schema": PublicBatch.model_json_schema(),
+        },
+    )
+    text = interaction.output_text or ""
+    if not text.strip():
+        raise RuntimeError("Gemini returned no videos.")
+    return parse_public_batch(text)
+
+
 def to_public(idea: VideoIdea) -> dict:
     data = idea.model_dump()
     data["sound_label"] = SOUND_LABELS[idea.sound_profile]

@@ -13,13 +13,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import ROOT, client_secret_path, find_ffmpeg, gemini_api_key, preview_mode
-from app.ideas import generate_idea, generate_short_ideas, to_public
+from app.ideas import generate_idea, generate_public_video_ideas, generate_short_ideas, to_public
 from app.jobs import create_proposed, get_job, latest_proposed, list_jobs, update_job
 from app.pipeline import publish, run_job
 from app.youtube import run_oauth_flow, youtube_connected
 
 _connect_state = {"running": False, "error": None}
 _shorts_state = {"running": False}
+_public_batch_state = {"running": False}
 
 
 @asynccontextmanager
@@ -56,6 +57,19 @@ def spawn_shorts(job_ids: list[str]) -> None:
                 run_job(job_id)
         finally:
             _shorts_state["running"] = False
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def spawn_public_batch(job_ids: list[str]) -> None:
+    _public_batch_state["running"] = True
+
+    def work():
+        try:
+            for job_id in job_ids:
+                run_job(job_id)
+        finally:
+            _public_batch_state["running"] = False
 
     threading.Thread(target=work, daemon=True).start()
 
@@ -126,6 +140,47 @@ def create_shorts(body: ShortsBody):
             )
         )
     spawn_shorts([job["id"] for job in created])
+    return {"jobs": created}
+
+
+@app.post("/api/public-videos")
+def create_public_videos():
+    if _public_batch_state["running"]:
+        raise HTTPException(status_code=409, detail="Ten public videos are already being made.")
+    if find_ffmpeg() is None:
+        raise HTTPException(
+            status_code=400,
+            detail="ffmpeg is not installed. Install it with: winget install Gyan.FFmpeg",
+        )
+    if not preview_mode() and not youtube_connected():
+        raise HTTPException(status_code=400, detail="Connect YouTube before uploading public videos.")
+    titles = [job["title"] for job in list_jobs(40)]
+    try:
+        ideas = generate_public_video_ideas(avoid_titles=titles)
+    except Exception as exc:
+        message = str(exc).strip() or "Could not create videos."
+        status = 400 if "GEMINI_API_KEY" in message else 502
+        raise HTTPException(status_code=status, detail=message) from exc
+    batch_id = uuid.uuid4().hex
+    created = []
+    for index, idea in enumerate(ideas, start=1):
+        job = create_proposed(to_public(idea))
+        created.append(
+            update_job(
+                job["id"],
+                status="queued",
+                step="queued",
+                format="long",
+                batch_id=batch_id,
+                batch_index=index,
+                privacy="public",
+                duration_hours=3,
+                duration_seconds=None,
+                error=None,
+                note=None,
+            )
+        )
+    spawn_public_batch([job["id"] for job in created])
     return {"jobs": created}
 
 

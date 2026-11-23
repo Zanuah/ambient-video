@@ -59,6 +59,39 @@ _SHORTS = [
 ]
 
 
+_PUBLIC_VIDEOS = [
+    ("sleep", "soft_rain", "Soft rain on a dark porch", "Rain falling on a dark wooden porch at night."),
+    ("sleep", "heavy_rain", "Heavy rain for deep sleep", "Heavy rain on a cabin roof in the dark."),
+    ("focus", "brown_noise", "Brown noise beside a rainy window", "A dim desk by a rainy window."),
+    ("focus", "pink_noise", "Pink noise for a quiet library", "An empty library table under a warm lamp."),
+    ("focus", "stream", "Forest stream for deep work", "A shaded forest stream with no people."),
+    ("meditation", "fireplace", "Fireplace for quiet sitting", "A small fire in a dark stone hearth."),
+    ("meditation", "wind", "Wind through pines for sitting", "Pine trees moving in a slow wind at dusk."),
+    ("rest", "ocean", "Night surf for resting", "A dark beach with a low surf line."),
+    ("rest", "white_noise", "White noise in a still room", "A still pale room with a closed window."),
+    ("sleep", "ocean", "Distant waves for sleep", "Moonlight on a calm dark sea."),
+]
+
+
+def preview_public_videos():
+    ideas = []
+    for purpose, sound, title, scene in _PUBLIC_VIDEOS:
+        ideas.append(
+            parse_idea(
+                {
+                    "purpose": purpose,
+                    "title": title,
+                    "description": f"{scene} Leave it playing for background listening.",
+                    "tags": [purpose, sound.replace("_", " "), "ambient"],
+                    "scene_summary": scene,
+                    "scene_prompt": f"Photorealistic 16:9 photograph, {scene} No people, no text.",
+                    "sound_profile": sound,
+                }
+            )
+        )
+    return ideas
+
+
 def preview_shorts():
     ideas = []
     for purpose, sound, title, scene in _SHORTS:

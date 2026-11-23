@@ -34,6 +34,7 @@
       </label>
       <button id="generate" type="button">Generate random video idea</button>
       <button id="shorts" type="button">Create 10 calm and focus Shorts</button>
+      <button id="public-batch" type="button">Generate 10 random 3 hour Public videos and upload them.</button>
       <button id="connect" type="button">Connect YouTube</button>
     </section>
 
@@ -61,11 +62,18 @@
       <ol id="shorts-list"></ol>
     </section>
 
+    <section id="public-panel" class="history" hidden>
+      <h2>Public videos</h2>
+      <p class="lede">Ten random 3-hour videos. Each row updates as that video is built and uploaded as Public.</p>
+      <p id="public-status" class="status" role="status"></p>
+      <ol id="public-list"></ol>
+    </section>
+
     <section class="history">
       <h2>Recent</h2>
       <ul id="history"></ul>
     </section>
   </main>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

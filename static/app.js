@@ -2,6 +2,7 @@ const durationEl = document.querySelector("#duration");
 const privacyEl = document.querySelector("#privacy");
 const generateBtn = document.querySelector("#generate");
 const shortsBtn = document.querySelector("#shorts");
+const publicBtn = document.querySelector("#public-batch");
 const connectBtn = document.querySelector("#connect");
 const declineBtn = document.querySelector("#decline");
 const approveBtn = document.querySelector("#approve");
@@ -13,11 +14,15 @@ const historyEl = document.querySelector("#history");
 const shortsPanel = document.querySelector("#shorts-panel");
 const shortsList = document.querySelector("#shorts-list");
 const shortsStatusEl = document.querySelector("#shorts-status");
+const publicPanel = document.querySelector("#public-panel");
+const publicList = document.querySelector("#public-list");
+const publicStatusEl = document.querySelector("#public-status");
 const healthEl = document.querySelector("#health");
 
 let current = null;
 let pollTimer = null;
 let shortsTimer = null;
+let publicTimer = null;
 
 function setError(message) {
   errorEl.textContent = message || "";
@@ -29,6 +34,10 @@ function setStatus(message) {
 
 function setShortsStatus(message) {
   shortsStatusEl.textContent = message || "";
+}
+
+function setPublicStatus(message) {
+  publicStatusEl.textContent = message || "";
 }
 
 async function request(url, options) {
@@ -120,6 +129,72 @@ function renderShorts(jobs) {
     item.dataset.index = String(index + 1);
     shortsList.appendChild(item);
   });
+}
+
+function latestLongBatch(jobs) {
+  const longs = jobs.filter((job) => job.format === "long" && job.batch_id);
+  if (!longs.length) return [];
+  const newest = longs
+    .slice()
+    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))[0];
+  return longs
+    .filter((job) => job.batch_id === newest.batch_id)
+    .sort((a, b) => (a.batch_index || 0) - (b.batch_index || 0));
+}
+
+function renderPublicVideos(jobs) {
+  publicPanel.hidden = jobs.length === 0;
+  publicList.innerHTML = "";
+  jobs.forEach((job, index) => {
+    const item = document.createElement("li");
+    const link = job.youtube_url ? ` · <a href="${job.youtube_url}">YouTube</a>` : "";
+    const problem = job.error ? ` · ${escapeHtml(job.error)}` : "";
+    item.innerHTML = `${escapeHtml(job.title)} · 3 hours · Public · ${escapeHtml(job.step || job.status)}${link}${problem}`;
+    item.dataset.index = String(index + 1);
+    publicList.appendChild(item);
+  });
+}
+
+function watchPublicVideos(ids) {
+  if (publicTimer) clearInterval(publicTimer);
+  const tick = async () => {
+    try {
+      const jobs = [];
+      for (const id of ids) jobs.push(await request(`/api/jobs/${id}`));
+      jobs.sort((a, b) => (a.batch_index || 0) - (b.batch_index || 0));
+      renderPublicVideos(jobs);
+      const busy = jobs.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
+      const finished = jobs.filter((job) => ["done", "ready", "failed"].includes(job.status)).length;
+      setPublicStatus(busy ? `Public videos ${finished} of ${jobs.length} finished…` : "");
+      if (!busy) {
+        clearInterval(publicTimer);
+        publicTimer = null;
+        publicBtn.disabled = false;
+      }
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+  publicBtn.disabled = true;
+  tick();
+  publicTimer = setInterval(tick, 1500);
+}
+
+async function createPublicVideos() {
+  setError("");
+  publicBtn.disabled = true;
+  setPublicStatus("Asking for 10 random 3 hour public videos…");
+  try {
+    const body = await request("/api/public-videos", { method: "POST" });
+    renderPublicVideos(body.jobs);
+    setPublicStatus("Public videos 0 of 10 finished…");
+    watchPublicVideos(body.jobs.map((job) => job.id));
+    await refreshHistory();
+  } catch (error) {
+    setError(error.message);
+    setPublicStatus("");
+    publicBtn.disabled = false;
+  }
 }
 
 function watchShorts(ids) {
@@ -325,6 +400,7 @@ async function connect() {
 
 generateBtn.addEventListener("click", generate);
 shortsBtn.addEventListener("click", createShorts);
+publicBtn.addEventListener("click", createPublicVideos);
 declineBtn.addEventListener("click", decline);
 approveBtn.addEventListener("click", approve);
 connectBtn.addEventListener("click", connect);
@@ -340,6 +416,12 @@ request("/api/jobs?limit=40")
       renderShorts(batch);
       const busy = batch.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
       if (busy) watchShorts(batch.map((job) => job.id));
+    }
+    const publicBatch = latestLongBatch(jobs);
+    if (publicBatch.length) {
+      renderPublicVideos(publicBatch);
+      const busy = publicBatch.some((job) => ["queued", "rendering", "uploading"].includes(job.status));
+      if (busy) watchPublicVideos(publicBatch.map((job) => job.id));
     }
   })
   .catch((error) => setError(error.message));
