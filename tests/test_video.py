@@ -9,7 +9,17 @@ from PIL import Image
 from app.audio import synthesize, write_wav
 from app.config import find_ffmpeg, find_ffprobe
 from app.images import fit_frame, image_prompt
-from app.video import ZOOM_AMOUNT, assemble, base_clip_command, render_base_clip, zoom_at
+from app.video import (
+    SUBSCRIBE_TEXT,
+    ZOOM_AMOUNT,
+    assemble,
+    assemble_command,
+    base_clip_command,
+    concat_entries,
+    render_base_clip,
+    subscribe_clip_command,
+    zoom_at,
+)
 
 
 def test_zoom_starts_and_ends_at_one():
@@ -35,14 +45,33 @@ def test_image_prompt_asks_for_a_still_without_people():
     assert "Rain on the sand." in prompt
 
 
-def test_assemble_copies_video_and_encodes_audio():
-    from app.video import assemble_command
-
-    command = assemble_command("ffmpeg", "clip.mp4", "loop.wav", "out.mp4", 15)
+def test_assemble_copies_video_and_encodes_audio(tmp_path):
+    listing = tmp_path / "concat.txt"
+    command = assemble_command("ffmpeg", listing, "loop.wav", tmp_path / "out.mp4", 15)
     assert command[command.index("-c:v") + 1] == "copy"
     assert command[command.index("-c:a") + 1] == "aac"
     assert command[command.index("-t") + 1] == "15.000"
+    assert command[command.index("-f") + 1] == "concat"
     assert "-stream_loop" in command
+
+
+def test_subscribe_card_lands_on_every_twelfth_loop(tmp_path):
+    clip = tmp_path / "clip.mp4"
+    card = tmp_path / "clip-subscribe.mp4"
+    entries = concat_entries(clip, card, 288)
+    assert len(entries) == 12
+    assert entries[:-1] == [clip] * 11
+    assert entries[-1] == card
+    short = concat_entries(clip, card, 15)
+    assert short == [clip]
+
+
+def test_subscribe_clip_shows_the_card_at_the_end(tmp_path):
+    command = subscribe_clip_command("ffmpeg", tmp_path / "clip.mp4", tmp_path / "card.mp4")
+    video_filter = command[command.index("-vf") + 1]
+    assert SUBSCRIBE_TEXT in video_filter
+    assert r"gte(t\,20)" in video_filter
+    assert command[command.index("-c:v") + 1] == "libx264"
 
 
 def test_smoke_renders_15_seconds(tmp_path):

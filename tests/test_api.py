@@ -157,6 +157,8 @@ def test_run_job_preview_skips_upload(monkeypatch, tmp_path):
     metadata = json.loads(Path(saved["metadata_path"]).read_text(encoding="utf-8"))
     assert metadata["privacy"] == "private"
     assert metadata["description"].endswith("Length: 1 hour.")
+    assert "flowing water" in metadata["tags"]
+    assert "study" in metadata["tags"]
 
 
 def test_run_job_uploads_when_connected(monkeypatch, tmp_path):

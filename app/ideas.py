@@ -33,7 +33,27 @@ SOUND_LABELS = {
 TEXT_MODEL = "gemini-3.8-flash"
 TITLE_LIMIT = 100
 DESCRIPTION_LIMIT = 4500
-TAG_LIMIT = 480
+TAG_LIMIT = 500
+SHARED_TAGS = ("ambient", "ambience", "background noise", "relaxing sounds", "calm")
+STUDY_TAGS = ("study", "studying", "study ambience", "study with me")
+NOISE_PROFILES = frozenset({"brown_noise", "pink_noise", "white_noise"})
+SOUND_TAGS = {
+    "soft_rain": ("rain", "rain sounds", "rainfall", "rain ambience", "raining"),
+    "heavy_rain": ("rain", "rain sounds", "rainfall", "heavy rain", "rain ambience"),
+    "ocean": ("ocean", "ocean waves", "sea sounds", "beach ambience", "waves"),
+    "stream": ("stream", "flowing water", "creek", "river sounds", "water sounds"),
+    "wind": ("wind", "wind sounds", "breeze"),
+    "brown_noise": ("brown noise", "brown noise for sleep", "deep noise"),
+    "pink_noise": ("pink noise", "pink noise for focus"),
+    "white_noise": ("white noise", "white noise for study"),
+    "fireplace": ("fireplace", "crackling fire", "fire sounds"),
+}
+PURPOSE_TAGS = {
+    "sleep": ("sleep", "sleep sounds", "sleeping", "bedtime", "night ambience"),
+    "focus": ("focus", "concentration", "focus sounds", "work ambience"),
+    "meditation": ("meditation", "meditate", "mindfulness"),
+    "rest": ("rest", "relax", "relaxation", "calming"),
+}
 
 Purpose = Literal["sleep", "focus", "meditation", "rest"]
 SoundProfile = Literal[
@@ -88,12 +108,24 @@ def normalize_tags(tags: list[str]) -> list[str]:
         key = item.lower()
         if not item or key in seen:
             continue
-        if total + len(item) > TAG_LIMIT or len(cleaned) >= 15:
+        if total + len(item) > TAG_LIMIT:
             break
         cleaned.append(item)
         seen.add(key)
         total += len(item)
     return cleaned
+
+
+def tags_for_video(tags: list[str], sound_profile: str, purpose: str) -> list[str]:
+    """Curated search tags for this sound and purpose, then the idea's own tags."""
+    merged: list[str] = []
+    merged.extend(SOUND_TAGS.get(sound_profile, ()))
+    merged.extend(PURPOSE_TAGS.get(purpose, ()))
+    if purpose == "focus" or sound_profile in NOISE_PROFILES:
+        merged.extend(STUDY_TAGS)
+    merged.extend(SHARED_TAGS)
+    merged.extend(tags)
+    return normalize_tags(merged)
 
 
 def append_length(description: str, hours: int) -> str:

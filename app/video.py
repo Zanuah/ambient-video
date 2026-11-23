@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,26 @@ SHORT_WIDTH = 1080
 SHORT_HEIGHT = 1920
 SHORT_SECONDS = 30
 SHORT_FPS = 15
+SUBSCRIBE_TEXT = "#Click SUBSCRIBE PLEASE!"
+SUBSCRIBE_FONT = "C:/Windows/Fonts/arialbd.ttf"
+SHORT_CARD_TAIL = 3
+LONG_CARD_TAIL = 4
+LOOPS_PER_CARD = 12
+
+
+def subscribe_drawtext(start_second: int, fontsize: int) -> str:
+    """Centered subscribe card. The comma in gte() is escaped so it stays one filter."""
+    font = SUBSCRIBE_FONT.replace("\\", "/").replace(":", "\\:")
+    start = max(0, start_second)
+    return (
+        "drawtext="
+        f"fontfile='{font}':"
+        f"text='{SUBSCRIBE_TEXT}':"
+        f"enable='gte(t\\,{start})':"
+        f"fontsize={fontsize}:fontcolor=white:borderw=3:bordercolor=black:"
+        "box=1:boxcolor=black@0.55:boxborderw=16:"
+        "x=(w-text_w)/2:y=(h-text_h)/2"
+    )
 
 
 def zoom_at(frame: int, frames: int = CLIP_SECONDS, amount: float = ZOOM_AMOUNT) -> float:
@@ -70,7 +91,8 @@ def short_command(
     video_filter = (
         f"scale={SHORT_WIDTH}:{SHORT_HEIGHT}:force_original_aspect_ratio=increase,"
         f"crop={SHORT_WIDTH}:{SHORT_HEIGHT},"
-        f"zoompan=z='{zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={SHORT_WIDTH}x{SHORT_HEIGHT}:fps={fps}"
+        f"zoompan=z='{zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={SHORT_WIDTH}x{SHORT_HEIGHT}:fps={fps},"
+        + subscribe_drawtext(seconds - SHORT_CARD_TAIL, fontsize=48)
     )
     return [
         ffmpeg,
@@ -115,14 +137,67 @@ def render_short(
     return output
 
 
-def assemble_command(ffmpeg: str, clip: Path, wav: Path, output: Path, duration_seconds: float) -> list[str]:
+def subscribe_clip_command(ffmpeg: str, clip: Path, output: Path, seconds: int = CLIP_SECONDS) -> list[str]:
     return [
         ffmpeg,
         "-y",
-        "-stream_loop",
-        "-1",
         "-i",
         str(clip),
+        "-vf",
+        subscribe_drawtext(seconds - LONG_CARD_TAIL, fontsize=64),
+        "-an",
+        "-r",
+        "1",
+        "-c:v",
+        "libx264",
+        "-tune",
+        "stillimage",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "1",
+        "-movflags",
+        "+faststart",
+        str(output),
+    ]
+
+
+def concat_entries(
+    clip: Path,
+    subscribe_clip: Path,
+    duration_seconds: float,
+    clip_seconds: int = CLIP_SECONDS,
+) -> list[Path]:
+    """Eleven plain loops, then the subscribe twin. Twelve loops is 288 seconds."""
+    count = max(1, math.ceil(duration_seconds / clip_seconds))
+    entries: list[Path] = []
+    for index in range(1, count + 1):
+        if index % LOOPS_PER_CARD == 0:
+            entries.append(subscribe_clip)
+        else:
+            entries.append(clip)
+    return entries
+
+
+def write_concat_file(path: Path, entries: list[Path]) -> Path:
+    lines = []
+    for entry in entries:
+        text = str(entry.resolve()).replace("\\", "/").replace("'", "'\\''")
+        lines.append(f"file '{text}'")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def assemble_command(ffmpeg: str, concat_file: Path, wav: Path, output: Path, duration_seconds: float) -> list[str]:
+    return [
+        ffmpeg,
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_file),
         "-stream_loop",
         "-1",
         "-i",
@@ -171,5 +246,9 @@ def assemble(clip: Path, wav: Path, output: Path, duration_seconds: float, ffmpe
         raise ValueError("Video length must be positive.")
     executable = ffmpeg or require_ffmpeg()
     output.parent.mkdir(parents=True, exist_ok=True)
-    run_ffmpeg(assemble_command(executable, clip, wav, output, duration_seconds))
+    subscribe = clip.with_name(f"{clip.stem}-subscribe{clip.suffix}")
+    run_ffmpeg(subscribe_clip_command(executable, clip, subscribe))
+    listing = output.with_name(f"{output.stem}-concat.txt")
+    write_concat_file(listing, concat_entries(clip, subscribe, duration_seconds))
+    run_ffmpeg(assemble_command(executable, listing, wav, output, duration_seconds))
     return output

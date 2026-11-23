@@ -11,6 +11,7 @@ from app.ideas import (
     idea_prompt,
     normalize_tags,
     parse_idea,
+    tags_for_video,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "idea.json"
@@ -40,10 +41,36 @@ def test_unknown_sound_is_rejected():
 
 def test_tags_stay_within_youtube_limits():
     tags = normalize_tags(["Rain, night"] + [f"tag {index}" for index in range(40)] + ["rain night"])
-    assert len(tags) <= 15
-    assert sum(len(tag) for tag in tags) <= 480
+    assert len(tags) > 15
+    assert sum(len(tag) for tag in tags) <= 500
     assert all("," not in tag for tag in tags)
     assert tags[0] == "Rain night"
+
+
+def test_keyword_sets_match_the_sound_and_purpose():
+    tags = tags_for_video(["creek"], "soft_rain", "sleep")
+    lowered = [tag.lower() for tag in tags]
+    assert "rain sounds" in lowered
+    assert "sleep" in lowered
+    assert "ambient" in lowered
+    assert "creek" in lowered
+    assert sum(len(tag) for tag in tags) <= 500
+
+
+def test_focus_and_noise_include_study_tags():
+    tags = tags_for_video([], "brown_noise", "focus")
+    lowered = [tag.lower() for tag in tags]
+    assert "brown noise" in lowered
+    assert "study" in lowered
+    assert "focus" in lowered
+
+
+def test_ocean_rest_skips_the_study_set():
+    tags = tags_for_video([], "ocean", "rest")
+    lowered = [tag.lower() for tag in tags]
+    assert "ocean waves" in lowered
+    assert "relax" in lowered
+    assert "study" not in lowered
 
 
 def test_long_title_is_shortened():

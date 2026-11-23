@@ -31,12 +31,16 @@ def test_batch_rejects_fewer_than_ten():
 
 
 def test_vertical_short_is_thirty_seconds():
+    from app.video import SUBSCRIBE_TEXT
+
     command = short_command("ffmpeg", "frame.png", "loop.wav", "out.mp4")
     video_filter = command[command.index("-vf") + 1]
     assert f"s={SHORT_WIDTH}x{SHORT_HEIGHT}" in video_filter
     assert command[command.index("-t") + 1] == f"{SHORT_SECONDS:.3f}"
     assert SHORT_SECONDS <= 60
     assert SHORT_HEIGHT > SHORT_WIDTH
+    assert SUBSCRIBE_TEXT in video_filter
+    assert r"gte(t\,27)" in video_filter
 
 
 def test_shorts_button_queues_ten_videos(monkeypatch):

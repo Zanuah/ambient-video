@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.audio import LOOP_SECONDS, SAMPLE_RATE, synthesize, write_wav
 from app.config import output_dir, preview_mode
-from app.ideas import append_length
+from app.ideas import append_length, tags_for_video
 from app.images import fit_frame, generate_still, write_thumbnail
 from app.jobs import get_job, update_job
 from app.video import SHORT_HEIGHT, SHORT_SECONDS, SHORT_WIDTH, assemble, render_base_clip, render_short
@@ -65,10 +65,11 @@ def _render(job: dict, folder: Path) -> None:
     thumb = folder / "thumbnail.jpg"
     write_thumbnail(frame, thumb)
     description = append_length(job["description"], hours)
+    tags = tags_for_video(job["tags"], job["sound_profile"], job["purpose"])
     metadata = {
         "title": job["title"],
         "description": description,
-        "tags": job["tags"],
+        "tags": tags,
         "purpose": job["purpose"],
         "sound_profile": job["sound_profile"],
         "duration_hours": hours,
@@ -83,6 +84,7 @@ def _render(job: dict, folder: Path) -> None:
         video_path=str(video),
         thumbnail_path=str(thumb),
         metadata_path=str(metadata_path),
+        tags=tags,
     )
 
 
@@ -111,10 +113,11 @@ def _render_short(job: dict, folder: Path) -> None:
     note = f"A {SHORT_SECONDS}-second YouTube Short for calm, focused listening."
     if note not in description:
         description = f"{description}\n\n{note}"
+    tags = tags_for_video(job["tags"], job["sound_profile"], job["purpose"])
     metadata = {
         "title": job["title"],
         "description": description,
-        "tags": job["tags"],
+        "tags": tags,
         "purpose": job["purpose"],
         "sound_profile": job["sound_profile"],
         "duration_seconds": SHORT_SECONDS,
@@ -131,6 +134,7 @@ def _render_short(job: dict, folder: Path) -> None:
         thumbnail_path=str(thumb),
         metadata_path=str(metadata_path),
         duration_seconds=SHORT_SECONDS,
+        tags=tags,
     )
 
 
@@ -148,6 +152,8 @@ def publish(job_id: str) -> None:
             description=metadata["description"],
             tags=metadata["tags"],
             privacy=metadata["privacy"],
+            sound_profile=metadata.get("sound_profile"),
+            purpose=metadata.get("purpose"),
         )
     except Exception as exc:
         update_job(
