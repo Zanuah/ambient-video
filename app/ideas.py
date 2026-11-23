@@ -211,13 +211,15 @@ def shorts_prompt(avoid_titles: list[str] | None = None) -> str:
     avoided = ", ".join(avoid_titles[:20]) if avoid_titles else "none"
     profiles = "soft_rain, ocean, stream, wind, brown_noise, pink_noise, fireplace"
     return f"""
-Propose exactly {SHORT_COUNT} different YouTube Shorts for calm and focus.
+Propose exactly {SHORT_COUNT} different YouTube Shorts for calm focus, meditation, and focused work.
 Each Short is one nearly still vertical photograph plus a seamless ambient sound. No animation, lyrics, or melody.
-purpose must be one of: focus, meditation, rest.
+purpose must be one of: focus, meditation, rest. Do not use sleep.
 sound_profile must be one of: {profiles}.
-Every title must be distinct and about calm focus, quiet work, or restful concentration.
-scene_prompt must describe one photorealistic vertical 9:16 photograph with no text, logos, or people.
-Do not claim the video cures, treats, or diagnoses anything.
+Include meditation Shorts for quiet sitting.
+Include Shorts for focus while coding, programming, deep work, studying, or other desk work.
+Every title must be distinct and name that activity, such as meditation, coding, programming, deep work, studying, or office work.
+scene_prompt must describe one photorealistic vertical 9:16 photograph with no text, logos, or people. A work scene may show an empty desk or a closed laptop, but no readable screen and no people.
+Do not claim the video cures, treats, or diagnoses anything. Describe it as background listening.
 Avoid these titles: {avoided}.
 """.strip()
 
@@ -289,12 +291,16 @@ def public_batch_prompt(avoid_titles: list[str] | None = None) -> str:
     avoided = ", ".join(avoid_titles[:20]) if avoid_titles else "none"
     profiles = ", ".join(SOUND_PROFILES)
     return f"""
-Propose exactly {PUBLIC_COUNT} different original long-form YouTube ambient videos that a person would leave playing for hours.
+Propose exactly {PUBLIC_COUNT} different long-form YouTube ambient videos for calm focus, meditation, and focused work. A person would leave one playing for hours.
 Each picture is a single nearly still photograph. The sound is a short field recording looped for the whole video, except brown, pink, and white noise, which are synthesized. Do not describe animation, lyrics, or a melody.
-Choose a purpose that is in demand for long listening: sleep, focus, meditation, or rest.
+purpose must be one of: focus, meditation, rest. Do not use sleep.
 Choose sound_profile from exactly this list: {profiles}.
-Every title must be distinct. The scene should be something people actually play in the background, such as rain, water, wind, a quiet room, or a fire.
-scene_prompt must describe one photorealistic 16:9 photograph with no text, logos, or people.
+Include at least three meditation videos for quiet sitting and background listening.
+Include at least three focus videos for coding, programming, deep work, studying, or other desk work.
+The remaining videos are calm focus or restful concentration.
+Every title must be distinct and name the activity, such as meditation, coding, programming, deep work, studying, or office work.
+Tags should include those activity words.
+scene_prompt must describe one photorealistic 16:9 photograph with no text, logos, or people. A work scene may show an empty desk, a closed laptop, or a rainy window, but no readable screen and no people.
 Do not claim the video cures, treats, or diagnoses insomnia, anxiety, or any condition. Describe it as background listening.
 Avoid these titles: {avoided}.
 """.strip()
@@ -317,10 +323,12 @@ def parse_public_batch(payload: str | dict | list) -> list[VideoIdea]:
         key = idea.title.lower()
         if key in seen:
             continue
+        if idea.purpose not in CALM_PURPOSES:
+            continue
         seen.add(key)
         unique.append(idea)
     if len(unique) < PUBLIC_COUNT:
-        raise ValueError(f"Expected {PUBLIC_COUNT} long-form videos, got {len(unique)}.")
+        raise ValueError(f"Expected {PUBLIC_COUNT} calm, meditation, or work-focus videos, got {len(unique)}.")
     return unique[:PUBLIC_COUNT]
 
 

@@ -11,7 +11,11 @@ from zoneinfo import ZoneInfo
 from app.config import client_secret_path, token_path
 from app.ideas import normalize_tags, tags_for_video
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    # Needed to remove a video after a replacement upload. youtube.upload cannot delete.
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+]
 # YouTube category 10 is Music, which is where ambient soundscapes are usually filed.
 MUSIC_CATEGORY = "10"
 INSERT_PARTS = "snippet,status,recordingDetails,paidProductPlacementDetails"
@@ -175,6 +179,8 @@ def upload_files(
     privacy: str,
     sound_profile: str | None = None,
     purpose: str | None = None,
+    notify_subscribers: bool = True,
+    apply_studio: bool = True,
 ) -> tuple[str, str | None]:
     from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaFileUpload
@@ -184,7 +190,12 @@ def upload_files(
         tags = tags_for_video(tags, sound_profile, purpose)
     body = build_insert_body(title, description, tags, privacy)
     media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True, chunksize=8 * 1024 * 1024)
-    request = service.videos().insert(part=INSERT_PARTS, body=body, media_body=media)
+    request = service.videos().insert(
+        part=INSERT_PARTS,
+        body=body,
+        media_body=media,
+        notifySubscribers=notify_subscribers,
+    )
     video_id = resumable_upload(request)["id"]
     warnings: list[str] = []
     try:
@@ -208,10 +219,11 @@ def upload_files(
             ).execute()
         except HttpError:
             warnings.append(THUMBNAIL_WARNING)
-    try:
-        from app.studio import apply_studio_settings
+    if apply_studio:
+        try:
+            from app.studio import apply_studio_settings
 
-        apply_studio_settings(video_id)
-    except Exception:
-        warnings.append(STUDIO_WARNING)
+            apply_studio_settings(video_id)
+        except Exception:
+            warnings.append(STUDIO_WARNING)
     return video_id, " ".join(warnings) or None

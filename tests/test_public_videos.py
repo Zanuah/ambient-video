@@ -2,7 +2,17 @@
 
 import pytest
 
-from app.ideas import parse_public_batch
+from app.ideas import public_batch_prompt, parse_public_batch
+
+
+def test_public_prompt_includes_meditation_and_work_focus():
+    prompt = public_batch_prompt(["Steady Night Rain on a Zinc Roof"])
+    assert "meditation" in prompt
+    assert "coding" in prompt
+    assert "deep work" in prompt
+    assert "studying" in prompt
+    assert "Do not use sleep" in prompt
+    assert "Steady Night Rain on a Zinc Roof" in prompt
 
 
 def test_batch_rejects_fewer_than_ten():
@@ -32,6 +42,10 @@ def test_public_button_queues_ten_three_hour_public_videos(monkeypatch):
     assert all(job["status"] == "queued" for job in jobs)
     assert all(job["privacy"] == "public" for job in jobs)
     assert all(job["duration_hours"] == 3 for job in jobs)
+    assert all(job["purpose"] in {"focus", "meditation", "rest"} for job in jobs)
+    titles = " ".join(job["title"].lower() for job in jobs)
+    assert "meditation" in titles
+    assert "coding" in titles
     assert started["ids"] == [job["id"] for job in jobs]
     assert len({job["batch_id"] for job in jobs}) == 1
 

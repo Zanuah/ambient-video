@@ -47,29 +47,29 @@ _IDEAS = [
 
 _SHORTS = [
     ("focus", "soft_rain", "Soft rain for calm focus", "Rain on a dim window while a desk stays empty."),
-    ("focus", "brown_noise", "Brown noise for quiet work", "A wooden desk and a single warm lamp."),
-    ("meditation", "stream", "Creek sound for steady focus", "A shaded creek under green leaves."),
+    ("focus", "brown_noise", "Brown noise for coding", "A closed laptop on a wooden desk."),
+    ("meditation", "stream", "Creek sound for meditation", "A shaded creek under green leaves."),
     ("rest", "ocean", "Soft surf for a calm break", "A pale shoreline with no people."),
-    ("focus", "pink_noise", "Pink noise for reading", "An open book on a quiet table."),
-    ("meditation", "wind", "Gentle wind for concentration", "Curtains moving in a still room."),
-    ("rest", "fireplace", "Low fire for calm focus", "A small fire in a dark hearth."),
-    ("focus", "stream", "Morning water for deep work", "Sun on a slow forest stream."),
-    ("meditation", "soft_rain", "Night rain for a calm desk", "Rain on glass above a dark desk."),
-    ("rest", "ocean", "Still water for focused rest", "A quiet lake just before dusk."),
+    ("focus", "pink_noise", "Pink noise for deep work", "An empty office desk under a warm lamp."),
+    ("meditation", "wind", "Gentle wind for meditation", "Curtains moving in a still room."),
+    ("focus", "fireplace", "Low fire for a work session", "A small fire beside an empty work chair."),
+    ("focus", "stream", "Morning water for coding", "Sun on a slow stream beyond a work desk."),
+    ("meditation", "soft_rain", "Night rain for meditation", "Rain on glass above a quiet cushion."),
+    ("rest", "ocean", "Still water for calm focus", "A quiet lake just before dusk."),
 ]
 
 
 _PUBLIC_VIDEOS = [
-    ("sleep", "soft_rain", "Soft rain on a dark porch", "Rain falling on a dark wooden porch at night."),
-    ("sleep", "heavy_rain", "Heavy rain for deep sleep", "Heavy rain on a cabin roof in the dark."),
-    ("focus", "brown_noise", "Brown noise beside a rainy window", "A dim desk by a rainy window."),
-    ("focus", "pink_noise", "Pink noise for a quiet library", "An empty library table under a warm lamp."),
-    ("focus", "stream", "Forest stream for deep work", "A shaded forest stream with no people."),
-    ("meditation", "fireplace", "Fireplace for quiet sitting", "A small fire in a dark stone hearth."),
-    ("meditation", "wind", "Wind through pines for sitting", "Pine trees moving in a slow wind at dusk."),
-    ("rest", "ocean", "Night surf for resting", "A dark beach with a low surf line."),
-    ("rest", "white_noise", "White noise in a still room", "A still pale room with a closed window."),
-    ("sleep", "ocean", "Distant waves for sleep", "Moonlight on a calm dark sea."),
+    ("focus", "brown_noise", "Brown noise for coding", "A dim desk and a closed laptop beside a rainy window."),
+    ("focus", "pink_noise", "Pink noise for deep work", "An empty office desk under a warm lamp."),
+    ("focus", "soft_rain", "Rain for a late coding session", "Rain on glass above a dark work desk."),
+    ("focus", "white_noise", "White noise for studying", "A still study table with a closed notebook."),
+    ("focus", "stream", "Stream sounds for focused work", "A shaded forest stream beyond a quiet desk."),
+    ("meditation", "fireplace", "Fireplace for quiet meditation", "A small fire in a dark stone hearth."),
+    ("meditation", "wind", "Wind for a meditation sit", "Pine trees moving in a slow wind at dusk."),
+    ("meditation", "ocean", "Soft surf for meditation", "A dark quiet shoreline with no people."),
+    ("meditation", "soft_rain", "Soft rain for sitting meditation", "Rain in a still room with an empty cushion."),
+    ("rest", "stream", "Creek sounds for calm focus", "A slow creek under green leaves."),
 ]
 
 

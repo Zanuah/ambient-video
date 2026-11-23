@@ -63,9 +63,10 @@ def test_studio_failure_keeps_the_upload(monkeypatch, tmp_path):
             return {}
 
     class Videos:
-        def insert(self, part, body, media_body):
+        def insert(self, part, body, media_body, notifySubscribers=True):
             assert part == INSERT_PARTS
             assert body["status"]["containsSyntheticMedia"] is True
+            assert notifySubscribers is True
             return Request()
 
         def update(self, part, body):
