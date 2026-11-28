@@ -1,0 +1,12 @@
+---
+description: Commit and push every project change to master
+alwaysApply: true
+---
+
+# Commit and push
+
+When you change this project, commit the completed work and push it to `master` before you finish.
+
+- Do not commit secrets or local credentials: `.env`, `client_secret.json`, `token.json`, or anything in `output/` and `data/`.
+- Do not force-push `master`.
+- Leave scratch files such as `.tmp-*` untracked.

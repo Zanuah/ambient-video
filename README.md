@@ -6,13 +6,9 @@ The picture barely moves: a slow zoom out and back. Rain, waves, a stream, wind,
 
 ## Setup
 
-You need Python 3.12 and ffmpeg.
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/). The app, Python, and ffmpeg run in one container.
 
 ```powershell
-winget install Gyan.FFmpeg
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
 copy .env.example .env
 ```
 
@@ -37,11 +33,24 @@ Generated pictures include Google's SynthID watermark. A still image plus a loop
 
 ## Run
 
+Windows:
+
 ```powershell
-.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8765
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-Open http://127.0.0.1:8765
+Mac:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+Each script removes the old container and image, builds a fresh image, starts it, and opens http://127.0.0.1:8765
+
+Videos, the job database, and the YouTube token stay in `output/`, `data/`, and `token.json` on this machine. The container does not keep them.
+
+YouTube Studio's location and caption clicks need a visible browser on this machine, so that step does not run inside the container. The upload still runs, and the page says when those Studio settings were not saved.
 
 1. Click **Connect YouTube** and sign in once. The token stays in `token.json` on this machine.
 2. Choose a length (1, 3, 8, or 10 hours) and a privacy setting.
@@ -67,7 +76,12 @@ Each approved idea gets a folder in `output/`:
 
 ## Tests
 
+Tests run on the host, outside Docker.
+
 ```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 .venv\Scripts\python -m pytest
 ```
 

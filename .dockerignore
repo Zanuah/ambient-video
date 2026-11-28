@@ -1,0 +1,14 @@
+.venv
+.git
+.cursor
+output
+data
+__pycache__
+.pytest_cache
+.env
+token.json
+client_secret.json
+.tmp-*
+*.pyc
+*.pyo
+.DS_Store

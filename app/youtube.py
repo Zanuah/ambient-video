@@ -131,8 +131,11 @@ def youtube_connected() -> bool:
         return False
 
 
-def run_oauth_flow():
+def run_oauth_flow(on_url=None):
     """Open the Google consent window and store a local token.
+
+    The redirect server listens on every interface at a fixed port so a Docker
+    port publish can reach it. The page opens the consent URL on the host.
 
     google-auth calls signal.signal, which only works on the main thread.
     The Connect button runs in a worker thread, so ignore that restriction.
@@ -140,8 +143,19 @@ def run_oauth_flow():
     secret = client_secret_path()
     if not secret.exists():
         raise RuntimeError("Save your OAuth desktop client as client_secret.json in the project folder.")
+    import webbrowser
+
     from google_auth_oauthlib.flow import InstalledAppFlow
 
+    from app.config import oauth_port
+
+    class _ReportUrl(webbrowser.BaseBrowser):
+        def open(self, url, new=0, autoraise=True):
+            if on_url is not None:
+                on_url(url)
+            return True
+
+    webbrowser.register("ambient-video", None, _ReportUrl())
     original = signal.signal
 
     def allow_worker_thread(signum, handler):
@@ -154,7 +168,14 @@ def run_oauth_flow():
         signal.signal = allow_worker_thread
     try:
         flow = InstalledAppFlow.from_client_secrets_file(str(secret), SCOPES)
-        creds = flow.run_local_server(port=0, open_browser=True, prompt="consent")
+        creds = flow.run_local_server(
+            host="localhost",
+            bind_addr="0.0.0.0",
+            port=oauth_port(),
+            open_browser=True,
+            browser="ambient-video",
+            prompt="consent",
+        )
     finally:
         signal.signal = original
     token_path().write_text(creds.to_json(), encoding="utf-8")

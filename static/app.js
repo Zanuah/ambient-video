@@ -377,17 +377,26 @@ async function connect() {
   setError("");
   connectBtn.disabled = true;
   setStatus("Opening Google sign-in…");
+  let openedAuth = "";
   try {
     await request("/api/youtube/connect", { method: "POST" });
     const timer = setInterval(async () => {
       const health = await refreshHealth();
+      if (health.auth_url && health.auth_url !== openedAuth) {
+        openedAuth = health.auth_url;
+        const popup = window.open(health.auth_url, "_blank", "noopener");
+        if (!popup) {
+          setStatus("");
+          statusEl.innerHTML = `Google sign-in is ready. <a href="${escapeHtml(health.auth_url)}" target="_blank" rel="noopener">Open Google sign-in</a>`;
+        }
+      }
       if (health.youtube_connected) {
         clearInterval(timer);
         setStatus("YouTube is connected.");
         connectBtn.disabled = false;
       } else if (!health.connect_running) {
         clearInterval(timer);
-        setStatus("");
+        setStatus(statusEl.querySelector("a") ? statusEl.textContent : "");
         connectBtn.disabled = false;
       }
     }, 1500);

@@ -18,7 +18,7 @@ from app.jobs import create_proposed, get_job, latest_proposed, list_jobs, updat
 from app.pipeline import publish, run_job
 from app.youtube import run_oauth_flow, youtube_connected
 
-_connect_state = {"running": False, "error": None}
+_connect_state = {"running": False, "error": None, "auth_url": None}
 _shorts_state = {"running": False}
 _public_batch_state = {"running": False}
 
@@ -89,6 +89,7 @@ def health():
         "youtube_connected": youtube_connected(),
         "connect_running": _connect_state["running"],
         "connect_error": _connect_state["error"],
+        "auth_url": _connect_state["auth_url"],
     }
 
 
@@ -272,14 +273,16 @@ def connect_youtube():
         return {"status": "waiting"}
     _connect_state["running"] = True
     _connect_state["error"] = None
+    _connect_state["auth_url"] = None
 
     def work():
         try:
-            run_oauth_flow()
+            run_oauth_flow(on_url=lambda url: _connect_state.__setitem__("auth_url", url))
         except Exception as exc:
             _connect_state["error"] = str(exc).strip() or "YouTube sign-in failed."
         finally:
             _connect_state["running"] = False
+            _connect_state["auth_url"] = None
 
     threading.Thread(target=work, daemon=True).start()
     return {"status": "waiting"}

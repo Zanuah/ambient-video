@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    image: ambient-video:local
+    ports:
+      - "127.0.0.1:8765:8765"
+      - "127.0.0.1:8766:8766"
+    env_file:
+      - .env
+    environment:
+      AMBIENT_OUTPUT: /data/output
+      AMBIENT_DATA: /data/data
+      YOUTUBE_CLIENT_SECRET: /secrets/client_secret.json
+      YOUTUBE_TOKEN: /secrets/token.json
+      FFMPEG: /usr/bin/ffmpeg
+      OAUTH_PORT: "8766"
+    volumes:
+      - ./output:/data/output
+      - ./data:/data/data
+      - ./client_secret.json:/secrets/client_secret.json:ro
+      - ./token.json:/secrets/token.json
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/health')",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s

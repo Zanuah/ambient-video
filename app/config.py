@@ -37,6 +37,11 @@ def preview_mode() -> bool:
     return os.environ.get("AMBIENT_PREVIEW", "").strip() == "1"
 
 
+def oauth_port() -> int:
+    raw = os.environ.get("OAUTH_PORT", "8766").strip() or "8766"
+    return int(raw)
+
+
 def find_ffmpeg() -> str | None:
     override = os.environ.get("FFMPEG", "").strip()
     if override and Path(override).exists():
